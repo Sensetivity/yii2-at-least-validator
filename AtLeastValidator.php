@@ -4,6 +4,7 @@ namespace codeonyii\yii2validators;
 
 use Yii;
 use yii\base\InvalidConfigException;
+use yii\helpers\ArrayHelper;
 use yii\i18n\PhpMessageSource;
 use yii\validators\Validator;
 
@@ -72,6 +73,16 @@ class AtLeastValidator extends Validator
     public $skipOnError = false;
 
     /**
+     * @var bool
+     */
+    public $inVirtual = false;
+
+    /**
+     * @var string|null
+     */
+    public $fieldPrefix;
+
+    /**
      * @inheritdoc
      */
     public function init()
@@ -103,7 +114,13 @@ class AtLeastValidator extends Validator
         $chosen = 0;
 
         foreach ($attributes as $attributeName) {
-            $value = $model->$attributeName;
+            if ($this->inVirtual) {
+                $virtualAttributes = $model->$attribute;
+                $value = ArrayHelper::getValue($virtualAttributes, str_replace($this->fieldPrefix . '-', '', $attributeName));
+            } else {
+                $value = $model->$attributeName;
+            }
+
             $attributesListLabels[] = '"' . $model->getAttributeLabel($attributeName). '"';
             $chosen += !empty($value) ? 1 : 0;
         }
@@ -130,7 +147,7 @@ class AtLeastValidator extends Validator
 
         $attributesLabels = [];
         foreach ($attributes as $attr) {
-            $attributesLabels[] = '"' . addcslashes($model->getAttributeLabel($attr), "'") . '"';
+            $attributesLabels[] = '"' . $model->getAttributeLabel($attr) . '"';
         }
         $message = strtr($this->message, [
             '{min}' => $this->min,
@@ -141,10 +158,10 @@ class AtLeastValidator extends Validator
 
         return <<<JS
             function atLeastValidator() {
-                var atributes = $attributesJson;
+                var attributes = $attributesJson;
                 var formName = '$form';
                 var chosen = 0; 
-                $.each(atributes, function(key, attr){
+                $.each(attributes, function(key, attr){
                     var obj = $('#' + formName.toLowerCase() + '-' + attr);
                     if(obj.length == 0){
                         obj = $("[name=\""+formName + '[' + attr + ']'+"\"]");
@@ -156,7 +173,7 @@ class AtLeastValidator extends Validator
                 if (!chosen || chosen < $this->min) {
                     messages.push('$message');
                 } else {
-                    $.each(atributes, function(key, attr){
+                    $.each(attributes, function(key, attr){
                         var attrId = formName.toLowerCase() + '-' + attr;
                         if($('#' + attrId).length == 0){
                             attrId = $("[name=\""+formName + '[' + attr + ']'+"\"]").attr('id');
@@ -170,4 +187,3 @@ class AtLeastValidator extends Validator
 JS;
     }
 }
-
